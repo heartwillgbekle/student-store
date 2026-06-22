@@ -135,6 +135,29 @@ HTTP status carries the category (`400` validation, `404` missing, `500` server)
 }
 ```
 
+**Query parameters** — all optional, freely combinable:
+
+| Param      | Type     | Accepted values                            | Effect                                                                 |
+|------------|----------|--------------------------------------------|------------------------------------------------------------------------|
+| `category` | `string` | Any non-empty string (e.g. `Apparel`)      | Filter to products where `category` matches exactly (case-insensitive). |
+| `sort`     | `string` | `price`, `-price`, `name`, `-name`, `createdAt`, `-createdAt` | Sort by the given field. A leading `-` reverses the order (descending). |
+
+**Default behavior** (no params): return all products with no filter. Order is unspecified by the contract — callers must pass `sort=...` if they need a deterministic order. (Implementation note: the route currently uses `orderBy: { id: 'asc' }` as a stable internal default, but callers should not rely on it.)
+
+**Examples**
+- `GET /products?category=Apparel` → only apparel products.
+- `GET /products?sort=price` → all products, cheapest first.
+- `GET /products?sort=-createdAt` → all products, newest first.
+- `GET /products?category=Apparel&sort=-price` → apparel only, most expensive first.
+
+**Errors**
+- **400** — `{ "error": "Invalid sort field: <value>" }` if `sort` is provided but isn't one of the accepted values above. `category` is never an error: an unknown category simply returns an empty `products` array (it's a filter, not a lookup).
+
+**Why this shape, not the alternatives**
+- **Why exact-match on `category` instead of substring search?** Categories are short, controlled strings; a substring search would conflate `"Apparel"` and `"Accessories"`. If full-text search becomes a requirement later, add a separate `q=` param rather than overloading `category`.
+- **Why the `-field` convention for descending sort instead of a separate `order=desc`?** One param is easier to read in a URL and easier to validate (one allowlist check vs. two). It's also what JSON:API and several other public APIs use, so it's the least surprising default.
+- **Why is an unknown category an empty result, but an unknown sort field a 400?** A nonexistent category is plausible user data ("show me products in 'Snacks'" when there are none yet) — empty list is the correct answer. A bad `sort` value is almost always a bug in the client, so failing loudly is more helpful than silently ignoring it.
+
 #### 3. `GET /products/:id`
 - **200**: `{ "product": Product }`
 - **404**: `{ "error": "Product 42 not found" }`

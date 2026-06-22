@@ -1,15 +1,38 @@
 const Product = require('../models/productModel')
 
 const REQUIRED_FIELDS = ['name', 'description', 'price', 'imageUrl', 'category']
+const SORTABLE_FIELDS = new Set(['price', 'name', 'createdAt'])
 
 const parseId = (raw) => {
   const id = Number(raw)
   return Number.isInteger(id) && id > 0 ? id : null
 }
 
+const parseSort = (raw) => {
+  if (raw === undefined) return { ok: true, value: null }
+  if (typeof raw !== 'string' || raw === '') {
+    return { ok: false, error: `Invalid sort field: ${raw}` }
+  }
+  const direction = raw.startsWith('-') ? 'desc' : 'asc'
+  const field = raw.startsWith('-') ? raw.slice(1) : raw
+  if (!SORTABLE_FIELDS.has(field)) {
+    return { ok: false, error: `Invalid sort field: ${raw}` }
+  }
+  return { ok: true, value: { field, direction } }
+}
+
 const listProducts = async (req, res) => {
+  const sort = parseSort(req.query.sort)
+  if (!sort.ok) {
+    return res.status(400).json({ error: sort.error })
+  }
+  const category =
+    typeof req.query.category === 'string' && req.query.category !== ''
+      ? req.query.category
+      : undefined
+
   try {
-    const products = await Product.list()
+    const products = await Product.list({ category, sort: sort.value })
     res.json({ products })
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch products' })

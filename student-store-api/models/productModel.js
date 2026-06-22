@@ -1,7 +1,15 @@
 const prisma = require('../src/db/db')
 
-const list = async () => {
-  return prisma.product.findMany({ orderBy: { id: 'asc' } })
+const list = async ({ category, sort } = {}) => {
+  const where = category
+    ? { category: { equals: category, mode: 'insensitive' } }
+    : undefined
+
+  const orderBy = sort
+    ? { [sort.field]: sort.direction }
+    : { id: 'asc' }
+
+  return prisma.product.findMany({ where, orderBy })
 }
 
 const get = async (id) => {
