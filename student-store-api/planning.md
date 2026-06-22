@@ -310,6 +310,16 @@ The race in row 5 (TOCTOU between the `findMany` lookup and the `create`) is the
 - **Why snapshot `price` onto `OrderItem` instead of joining to `Product` at read time?** Prices change. An order placed today for `$29.99` should still show `$29.99` next year, even if the product is repriced or deleted. See decision D4.
 - **Why validate `productId`s before opening the transaction instead of catching the FK error inside?** Two reasons: (a) a `400` is the right code for "you sent a bad id" and a caught FK error is hard to translate cleanly into a useful message, (b) opening a transaction we're going to roll back wastes a connection slot under load.
 
+### 3.4 Details not previously called out
+
+Three small things that turned out to matter during implementation. Adding them here so the spec is the complete implementation guide:
+
+- **Duplicate `productId`s across `items` are allowed.** A body like `[{ productId: 1, quantity: 2 }, { productId: 1, quantity: 3 }]` is valid: it creates two `OrderItem` rows for the same product, with the total summing as `5 × price1`. The lookup deduplicates ids before the `findMany` (one DB round-trip), but the line items themselves are written one-per-input-entry. This makes the API match how a real shopping cart would behave if it didn't merge lines client-side.
+
+- **`Decimal` → number serialization.** Per D1, Prisma returns `Decimal.js` instances for `totalPrice` and `OrderItem.price`. These JSON-stringify as **strings** (e.g. `"29.99"`), but the response shape in Section 2.7/2.9 shows them as JSON numbers (`29.99`). The controller serializes via a `Number(...)` coercion before sending. The contract numbers, the model returns `Decimal`, the controller bridges. Don't move the coercion into the model — `Decimal` is the right representation for the `Σ (price × quantity)` math; precision only needs to be flattened at the JSON boundary.
+
+- **The order's `status` is always `"pending"` on creation.** The client cannot set it via `POST /orders`. Any `status` field in the request body is silently ignored — the model hardcodes `status: 'pending'` in the `data` block. Mutating an order's status is what `PUT /orders/:id` is for. This is a deliberate restriction: an order that arrives already-`completed` would skip the workflow that an order is supposed to go through.
+
 ---
 
 ## Decisions Log — Product Model
@@ -338,3 +348,29 @@ The race in row 5 (TOCTOU between the `findMany` lookup and the `create`) is the
 ### Verdict
 
 Schema, spec, and behavior are aligned. No code changes triggered by this audit; the schema as committed is the schema the spec describes, and the cascade rules behave exactly as Sections 1.1 and 1.2 promise.
+
+---
+
+## Decisions Log — Order Creation Transaction
+
+- **What the Transactional Flow spec got right**: the *outside-the-transaction validation* ordering was the most valuable thing the spec front-loaded. Doing shape validation → single `findMany` lookup → referential check → compute total → `$transaction` (in that order) meant the route returns `400` fast for the common "typo in productId" case and never opens a transaction it's going to roll back. When I started writing the controller, every guard had an obvious home because Section 3.1 had already worked out where each check belongs. The single bulk `findMany({ where: { id: { in: productIds } } })` was also exactly right — the "one round-trip, not N" call-out saved a future-me from looping `prisma.product.findUnique` in the validation step.
+
+- **What the spec missed that was discovered during implementation**: three details that the original Section 3 didn't address, now captured in the new **Section 3.4**:
+  1. **Duplicate `productId`s in `items` are allowed** — a body with `[{ productId: 1, quantity: 2 }, { productId: 1, quantity: 3 }]` is valid and writes two `OrderItem` rows. The spec never said yes or no; the implementation accepts it (matches real shopping-cart behavior when lines aren't merged client-side). Worth being explicit about so a future reader doesn't think it's a bug.
+  2. **Where the `Decimal` → JSON number coercion happens**. D1 said "route handlers must `.toNumber()` before sending JSON" but didn't pick a layer. The implementation does the coercion in the controller's `serializeOrder`, not the model. Reason: `Decimal` is the correct representation for the `Σ (price × quantity)` math; precision should only be flattened at the JSON boundary.
+  3. **`status` is always `"pending"` on creation, regardless of what the client sends**. The model hardcodes it. The original spec implied this (it's the schema default) but never said "the client cannot override it via `POST`." Now spelled out — the only path to a different status is `PUT /orders/:id`.
+
+- **How the transaction error handling works**: `prisma.$transaction(async (tx) => { ... })` opens a real Postgres transaction (`BEGIN`), runs every statement inside the callback on a single dedicated connection using the transactional client `tx`, and then either:
+  - **Commits** (`COMMIT`) if the callback returns normally — every write is persisted as one atomic unit.
+  - **Rolls back** (`ROLLBACK`) if the callback throws *anything* — every write inside the transaction is undone, including the parent `Order` row. The callback's rejection propagates out as a thrown error, which the controller catches and translates to `500 Failed to create order`.
+
+  The practical guarantees this gives us:
+  - If the `Order` row is inserted but a child `OrderItem` insert hits an FK violation (e.g. the TOCTOU race where a product is deleted between the lookup and the transaction), Postgres rolls back the *Order too* — no half-written orders ever exist.
+  - If the connection drops between the parent insert and a child insert, Postgres aborts the transaction on connection loss. Same outcome: nothing persists.
+  - If a `prisma.*` call somewhere inside throws a JS-level error (validation, type mismatch), the transaction rolls back the same way.
+
+  The wrapper is technically *redundant* for the current single-statement nested-create case — Prisma's nested write is already one DB statement and atomic at that level. The wrapper is there for two reasons: (a) it makes the atomicity guarantee visible at the call site instead of implicit in Prisma's nested-write behavior, and (b) future sibling writes (inventory decrement, payment row) will need the explicit transaction without restructuring the model.
+
+- **One thing I'd design differently if starting over**: I'd push the totalPrice **and** referential validation into the model rather than the controller, and hand the model only `{ customer, items }` instead of `{ customer, items, productPriceById }`. The current split has the controller doing the `findMany`, building the price map, and detecting "Product N does not exist" — then handing both `items` and `productPriceById` to the model. That works, but it means the *controller* knows the shape of the price map and the *model* trusts the controller to have validated. If a second caller ever needs to create orders (a seed script, a test, a future admin endpoint), they have to redo the lookup themselves, which means the existence-check error message would need to be duplicated too.
+
+  The cleaner shape would be: `Order.create({ customer, items })` does everything, throws a typed error (e.g. `class ProductNotFoundError extends Error { constructor(id) { ... } }`) when a product is missing, and the controller catches that specific error and translates it to `400 Product N does not exist`. The transaction wrapper would then enclose *both* the lookup and the insert, eliminating the TOCTOU race entirely and replacing the `500` row in the failure-modes table with a clean `400`. Not worth refactoring now — the current implementation is correct and the planning doc owns the failure-modes contract — but it's the design I'd reach for next time.
