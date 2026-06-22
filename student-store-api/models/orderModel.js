@@ -39,4 +39,20 @@ const create = async ({ customer, items, productPriceById }) => {
   })
 }
 
-module.exports = { list, get, create }
+const update = async (id, { customer, status }) => {
+  const data = {}
+  if (customer !== undefined) data.customer = customer
+  if (status !== undefined) data.status = status
+
+  return prisma.order.update({
+    where: { id },
+    data,
+    include: { orderItems: true },
+  })
+}
+
+const remove = async (id) => {
+  return prisma.order.delete({ where: { id } })
+}
+
+module.exports = { list, get, create, update, remove }

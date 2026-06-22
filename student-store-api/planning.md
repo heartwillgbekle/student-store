@@ -115,6 +115,8 @@ HTTP status carries the category (`400` validation, `404` missing, `500` server)
 | 7 | GET    | `/orders`        | List all orders, including their items. |
 | 8 | GET    | `/orders/:id`    | Fetch one order with its items.         |
 | 9 | POST   | `/orders`        | **Create an order plus its items, atomically.** |
+| 10 | PUT   | `/orders/:id`    | Update an order's `customer` and/or `status`. Items are immutable. |
+| 11 | DELETE | `/orders/:id`   | Delete an order (cascades to its `OrderItem` rows). |
 
 #### 1. `GET /`
 - **200**: `{ "message": "Welcome to the Student Store API" }`
@@ -238,6 +240,24 @@ Validation (all 400):
 - **400** — `{ "error": "items must be a non-empty array" }` (validation, before any DB write)
 - **400** — `{ "error": "Product 999 does not exist" }` (referential check, before any DB write)
 - **500** — `{ "error": "Failed to create order" }` (transaction rolled back; nothing was written)
+
+#### 10. `PUT /orders/:id`
+
+Update an order's `customer` and/or `status`. The line items (`orderItems`) and the computed `totalPrice` are **not** mutable through this endpoint — the items are the source of truth for the total, and rewriting them after the fact would invalidate the snapshot guarantees from D4. If items truly need to change, the correct flow is to cancel the order and create a new one.
+
+- **Body**: any subset of `{ customer, status }`. `status` must be one of `pending`, `completed`, `cancelled`.
+- **200**: `{ "order": Order }` — same shape as `GET /orders/:id`, with `orderItems` embedded.
+- **400** — `{ "error": "Invalid order id" }` if `:id` is non-numeric.
+- **400** — `{ "error": "customer must be a non-empty string" }` if `customer` is provided but empty.
+- **400** — `{ "error": "status must be one of: pending, completed, cancelled" }` if `status` is provided but not on the allowlist.
+- **400** — `{ "error": "No updatable fields provided" }` if the body has neither field.
+- **404** — `{ "error": "Order 42 not found" }`.
+
+#### 11. `DELETE /orders/:id`
+
+- **204**: empty body. Cascade removes `OrderItem` rows referencing this order (per D2/[planning.md:49](#L49) — and this is the *correct* default, since line items have no meaning without their parent order).
+- **400** — `{ "error": "Invalid order id" }` if `:id` is non-numeric.
+- **404** — `{ "error": "Order 42 not found" }`.
 
 ---
 

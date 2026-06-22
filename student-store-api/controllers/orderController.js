@@ -94,4 +94,59 @@ const createOrder = async (req, res) => {
   }
 }
 
-module.exports = { listOrders, getOrder, createOrder }
+const ALLOWED_STATUSES = new Set(['pending', 'completed', 'cancelled'])
+
+const updateOrder = async (req, res) => {
+  const id = parseId(req.params.id)
+  if (id === null) {
+    return res.status(400).json({ error: 'Invalid order id' })
+  }
+  const body = req.body || {}
+  const updates = {}
+
+  if (body.customer !== undefined) {
+    if (typeof body.customer !== 'string' || body.customer.trim() === '') {
+      return res.status(400).json({ error: 'customer must be a non-empty string' })
+    }
+    updates.customer = body.customer.trim()
+  }
+  if (body.status !== undefined) {
+    if (!ALLOWED_STATUSES.has(body.status)) {
+      return res.status(400).json({
+        error: `status must be one of: ${[...ALLOWED_STATUSES].join(', ')}`,
+      })
+    }
+    updates.status = body.status
+  }
+  if (Object.keys(updates).length === 0) {
+    return res.status(400).json({ error: 'No updatable fields provided' })
+  }
+
+  try {
+    const order = await Order.update(id, updates)
+    res.json({ order: serializeOrder(order) })
+  } catch (err) {
+    if (err.code === 'P2025') {
+      return res.status(404).json({ error: `Order ${id} not found` })
+    }
+    res.status(500).json({ error: 'Failed to update order' })
+  }
+}
+
+const deleteOrder = async (req, res) => {
+  const id = parseId(req.params.id)
+  if (id === null) {
+    return res.status(400).json({ error: 'Invalid order id' })
+  }
+  try {
+    await Order.remove(id)
+    res.status(204).send()
+  } catch (err) {
+    if (err.code === 'P2025') {
+      return res.status(404).json({ error: `Order ${id} not found` })
+    }
+    res.status(500).json({ error: 'Failed to delete order' })
+  }
+}
+
+module.exports = { listOrders, getOrder, createOrder, updateOrder, deleteOrder }
