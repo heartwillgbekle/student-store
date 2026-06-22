@@ -266,3 +266,13 @@ The race in row 5 (TOCTOU between the `findMany` lookup and the `create`) is the
 - **Why not loop and call `prisma.orderItem.create()` per item without `$transaction`?** Any failure mid-loop leaves a half-written order. The atomicity requirement isn't optional — it's the whole reason this section exists.
 - **Why snapshot `price` onto `OrderItem` instead of joining to `Product` at read time?** Prices change. An order placed today for `$29.99` should still show `$29.99` next year, even if the product is repriced or deleted. See decision D4.
 - **Why validate `productId`s before opening the transaction instead of catching the FK error inside?** Two reasons: (a) a `400` is the right code for "you sent a bad id" and a caught FK error is hard to translate cleanly into a useful message, (b) opening a transaction we're going to roll back wastes a connection slot under load.
+
+---
+
+## Decisions Log — Product Model
+
+- **Schema translation that went smoothly**: `Decimal(10, 2)` for `price` mapped cleanly from the planning doc to `@db.Decimal(10, 2)` in Prisma. The `@map("image_url")` and `@map("created_at")` annotations also kept the JS-side camelCase / DB-side snake_case split that D1 implied without any extra work — the model layer never has to think about the column names.
+
+- **Field decision made during implementation that wasn't in the original spec**: split the model and controller into separate files (`models/productModel.js` + `controllers/productController.js`) instead of putting Express handlers directly in the model. The planning doc was silent on file layout; the split keeps the DB layer reusable from non-HTTP callers (scripts, future tests, the seed file) and matches the structure the `Order` controller will need when it has both HTTP-shaped validation *and* a `prisma.$transaction` block.
+
+- **Route behavior that needed a spec update**: added two `400` cases the spec didn't enumerate — `Invalid product id` when `:id` is non-numeric (e.g. `/products/abc`), and `No updatable fields provided` when `PUT /products/:id` is called with an empty/junk body. Both surface as `{ "error": "..." }` per the standard error shape, so they're consistent with Section 2 — but the planning doc only spelled out the `400 Missing required field` case for `POST`. Worth a one-line update to the `PUT` and `:id` rows in Section 2.1 so the contract reflects what the server actually returns.
