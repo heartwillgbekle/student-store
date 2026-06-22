@@ -13,17 +13,21 @@ app.get('/', (req, res) => {
     });
 });
 
-app.get('/products', productController.listProducts);
-app.get('/products/:id', productController.getProduct);
-app.post('/products', productController.createProduct);
-app.put('/products/:id', productController.updateProduct);
-app.delete('/products/:id', productController.deleteProduct);
+// Products
+const {listProducts, getProduct, createProduct, updateProduct, deleteProduct} = productController;
+app.get('/products', listProducts);
+app.get('/products/:id', getProduct);
+app.post('/products', createProduct);
+app.put('/products/:id', updateProduct);
+app.delete('/products/:id', deleteProduct);
 
-app.get('/orders', orderController.listOrders);
-app.get('/orders/:id', orderController.getOrder);
-app.post('/orders', orderController.createOrder);
-app.put('/orders/:id', orderController.updateOrder);
-app.delete('/orders/:id', orderController.deleteOrder);
+// Orders
+const {listOrders, getOrder, createOrder, updateOrder, deleteOrder} = orderController;
+app.get('/orders', listOrders);
+app.get('/orders/:id', getOrder);
+app.post('/orders', createOrder);
+app.put('/orders/:id', updateOrder);
+app.delete('/orders/:id', deleteOrder);
 
 app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);

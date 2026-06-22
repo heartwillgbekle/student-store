@@ -319,3 +319,22 @@ The race in row 5 (TOCTOU between the `findMany` lookup and the `create`) is the
 - **Field decision made during implementation that wasn't in the original spec**: split the model and controller into separate files (`models/productModel.js` + `controllers/productController.js`) instead of putting Express handlers directly in the model. The planning doc was silent on file layout; the split keeps the DB layer reusable from non-HTTP callers (scripts, future tests, the seed file) and matches the structure the `Order` controller will need when it has both HTTP-shaped validation *and* a `prisma.$transaction` block.
 
 - **Route behavior that needed a spec update**: added two `400` cases the spec didn't enumerate — `Invalid product id` when `:id` is non-numeric (e.g. `/products/abc`), and `No updatable fields provided` when `PUT /products/:id` is called with an empty/junk body. Both surface as `{ "error": "..." }` per the standard error shape, so they're consistent with Section 2 — but the planning doc only spelled out the `400 Missing required field` case for `POST`. Worth a one-line update to the `PUT` and `:id` rows in Section 2.1 so the contract reflects what the server actually returns.
+
+---
+
+## Spec Reconciliation — Milestone 4 (Schema Audit)
+
+### Schema vs. spec gaps found
+
+- **No field-level gaps.** Every field in Section 1.1–1.3 is present in `schema.prisma` with the spec'd type, default, and nullability. No surprise fields in the schema either (no `updatedAt`, no `slug`, no soft-delete column) — the schema is exactly what the spec describes, nothing more.
+- **Column-name mappings extended past what the spec called out.** Spec mentioned `@map("image_url")` and `@map("created_at")` explicitly, but the schema also maps `total_price`, `order_id`, and `product_id` for consistency — every multi-word column lands as snake_case in Postgres while staying camelCase in JS. The spec was silent on these; treating them as a natural extension rather than a divergence.
+- **`OrderItem.quantity ≥ 1` is enforced in the controller, not the schema** — exactly as the spec called for at [Section 1.3](#L62). Confirmed the route handler rejects `quantity: 0` with `400 items[N].quantity must be a positive integer` rather than letting Prisma store the row. Documenting this here so future-me doesn't try to add a `@@check` thinking it was forgotten.
+
+### Cascade delete verification
+
+- **Deleting a `Product` removes associated `OrderItem` rows: ✅ tested.** Created an order with two line items, deleted one of the referenced products via `DELETE /products/:id`, then re-fetched the order via `GET /orders/:id`. The matching `orderItem` was gone; the order row survived with a stale `totalPrice` (the documented consequence from D2/[planning.md:84](#L84)), and the unrelated `orderItem` remained intact.
+- **Deleting an `Order` removes associated `OrderItem` rows: ✅ tested.** Created a fresh order, captured its `orderItem` ids, deleted the order via `DELETE /orders/:id`, then checked `prisma.orderItem` in Prisma Studio. None of the captured ids remained. The order's parent `Product` rows were unaffected — cascade is correctly scoped.
+
+### Verdict
+
+Schema, spec, and behavior are aligned. No code changes triggered by this audit; the schema as committed is the schema the spec describes, and the cascade rules behave exactly as Sections 1.1 and 1.2 promise.
