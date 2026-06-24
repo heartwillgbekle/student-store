@@ -18,7 +18,7 @@ The catalog row. Independent of any order.
 | `name`        | `String`    | yes      | —                    | Display name. |
 | `description` | `String`    | yes      | —                    | Short product blurb. |
 | `price`       | `Decimal`   | yes      | —                    | Stored as `Decimal(10, 2)`. See decision D1 below. |
-| `imageUrl`    | `String`    | yes      | —                    | Mapped to column `image_url` via `@map`. |
+| `image_url`   | `String`    | yes      | —                    | Snake_case end-to-end (DB column, Prisma field, JSON field) to match the React frontend's expected response shape. See Decisions Log entry on the imageUrl flip-back. |
 | `category`    | `String`    | yes      | —                    | Free-form string for now (e.g. `"Apparel"`). A `Category` enum is deferred — categories are likely to grow and we don't want a migration for every new one. |
 | `createdAt`   | `DateTime`  | yes      | `now()`              | Useful for "newest products" sort later. |
 
@@ -131,7 +131,7 @@ HTTP status carries the category (`400` validation, `404` missing, `500` server)
   "name": "College Hoodie",
   "description": "Comfortable and stylish hoodie with the college logo.",
   "price": 29.99,
-  "imageUrl": "https://tinyurl.com/college-hoodie",
+  "image_url": "https://tinyurl.com/college-hoodie",
   "category": "Apparel",
   "createdAt": "2026-06-17T10:00:00.000Z"
 }
@@ -165,12 +165,12 @@ HTTP status carries the category (`400` validation, `404` missing, `500` server)
 - **404**: `{ "error": "Product 42 not found" }`
 
 #### 4. `POST /products`
-- **Body**: `{ name, description, price, imageUrl, category }`
+- **Body**: `{ name, description, price, image_url, category }`
 - **201**: `{ "product": Product }`
 - **400**: `{ "error": "Missing required field: price" }`
 
 #### 5. `PUT /products/:id`
-- **Body**: any subset of `{ name, description, price, imageUrl, category }`
+- **Body**: any subset of `{ name, description, price, image_url, category }`
 - **200**: `{ "product": Product }`
 - **404**: `{ "error": "Product 42 not found" }`
 
@@ -324,7 +324,7 @@ Three small things that turned out to matter during implementation. Adding them 
 
 ## Decisions Log — Product Model
 
-- **Schema translation that went smoothly**: `Decimal(10, 2)` for `price` mapped cleanly from the planning doc to `@db.Decimal(10, 2)` in Prisma. The `@map("image_url")` and `@map("created_at")` annotations also kept the JS-side camelCase / DB-side snake_case split that D1 implied without any extra work — the model layer never has to think about the column names.
+- **Schema translation that went smoothly**: `Decimal(10, 2)` for `price` mapped cleanly from the planning doc to `@db.Decimal(10, 2)` in Prisma. The `@map("created_at")` annotation also kept the JS-side camelCase / DB-side snake_case split that D1 implied without any extra work — the model layer never has to think about the column name. (`image_url` was later flipped to snake_case end-to-end; see the dedicated Decisions Log entry below.)
 
 - **Field decision made during implementation that wasn't in the original spec**: split the model and controller into separate files (`models/productModel.js` + `controllers/productController.js`) instead of putting Express handlers directly in the model. The planning doc was silent on file layout; the split keeps the DB layer reusable from non-HTTP callers (scripts, future tests, the seed file) and matches the structure the `Order` controller will need when it has both HTTP-shaped validation *and* a `prisma.$transaction` block.
 
@@ -337,7 +337,7 @@ Three small things that turned out to matter during implementation. Adding them 
 ### Schema vs. spec gaps found
 
 - **No field-level gaps.** Every field in Section 1.1–1.3 is present in `schema.prisma` with the spec'd type, default, and nullability. No surprise fields in the schema either (no `updatedAt`, no `slug`, no soft-delete column) — the schema is exactly what the spec describes, nothing more.
-- **Column-name mappings extended past what the spec called out.** Spec mentioned `@map("image_url")` and `@map("created_at")` explicitly, but the schema also maps `total_price`, `order_id`, and `product_id` for consistency — every multi-word column lands as snake_case in Postgres while staying camelCase in JS. The spec was silent on these; treating them as a natural extension rather than a divergence.
+- **Column-name mappings extended past what the spec called out.** Spec mentioned `@map("image_url")` and `@map("created_at")` explicitly, but the schema also maps `total_price`, `order_id`, and `product_id` for consistency — every multi-word column lands as snake_case in Postgres while staying camelCase in JS. The spec was silent on these; treating them as a natural extension rather than a divergence. (Note: `image_url` was subsequently flipped to be snake_case end-to-end — Prisma field, JSON, frontend — so it no longer uses `@map`. See the Decisions Log entry below.)
 - **`OrderItem.quantity ≥ 1` is enforced in the controller, not the schema** — exactly as the spec called for at [Section 1.3](#L62). Confirmed the route handler rejects `quantity: 0` with `400 items[N].quantity must be a positive integer` rather than letting Prisma store the row. Documenting this here so future-me doesn't try to add a `@@check` thinking it was forgotten.
 
 ### Cascade delete verification
@@ -374,3 +374,18 @@ Schema, spec, and behavior are aligned. No code changes triggered by this audit;
 - **One thing I'd design differently if starting over**: I'd push the totalPrice **and** referential validation into the model rather than the controller, and hand the model only `{ customer, items }` instead of `{ customer, items, productPriceById }`. The current split has the controller doing the `findMany`, building the price map, and detecting "Product N does not exist" — then handing both `items` and `productPriceById` to the model. That works, but it means the *controller* knows the shape of the price map and the *model* trusts the controller to have validated. If a second caller ever needs to create orders (a seed script, a test, a future admin endpoint), they have to redo the lookup themselves, which means the existence-check error message would need to be duplicated too.
 
   The cleaner shape would be: `Order.create({ customer, items })` does everything, throws a typed error (e.g. `class ProductNotFoundError extends Error { constructor(id) { ... } }`) when a product is missing, and the controller catches that specific error and translates it to `400 Product N does not exist`. The transaction wrapper would then enclose *both* the lookup and the insert, eliminating the TOCTOU race entirely and replacing the `500` row in the failure-modes table with a clean `400`. Not worth refactoring now — the current implementation is correct and the planning doc owns the failure-modes contract — but it's the design I'd reach for next time.
+
+---
+
+## Decisions Log — `image_url` Snake_case Flip
+
+- **What changed**: Originally the Product field was `imageUrl` on the Prisma model and in JSON, with `@map("image_url")` keeping the underlying Postgres column snake_case. The frontend's existing reads (`product.image_url` in `ProductCard.jsx` and `ProductDetail.jsx`) were updated to camelCase to align with that contract. Later that decision was reverted: the field is now `image_url` everywhere — DB column, Prisma model, JSON response, frontend reads. The `@map` annotation was removed.
+
+- **Why the flip**: The frontend's source-of-truth seed data (`data/products.json`) and the React component reads were already snake_case. The earlier camelCase choice was theoretically cleaner (JS convention, consistent with `totalPrice`, `orderId`, `productId`, `createdAt`) but in practice it meant constantly translating between two case styles at every layer. Going snake_case end-to-end for this one field eliminated the translation step.
+
+- **What this costs**:
+  - **Inconsistency across the schema.** Every other multi-word JSON field is camelCase (`totalPrice`, `orderId`, `productId`, `createdAt`). `image_url` is now the lone snake_case outlier. A future developer reading the API responses may briefly think it's a bug — worth knowing.
+  - **The lone exception requires explanation.** That's what this Decisions Log entry exists for.
+  - **No DB-level cost.** The actual Postgres column was already `image_url` (set by `@map`), so removing the `@map` and renaming the Prisma field doesn't require a real SQL migration — `prisma db pull` or `prisma generate` is sufficient to regenerate the client. The migration file under `prisma/migrations/` stays as-is; it already names the column `image_url`.
+
+- **What it doesn't change**: The Section 3 transactional flow, the cascade rules, the validation order, the error shapes — nothing else moves. This is a pure JSON-key rename, propagated consistently through the stack.

@@ -28,7 +28,7 @@ async function seed() {
           name: product.name,
           description: product.description,
           price: product.price,
-          imageUrl: product.image_url,
+          image_url: product.image_url,
           category: product.category,
         },
       })

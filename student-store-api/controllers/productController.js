@@ -1,6 +1,6 @@
 const Product = require('../models/productModel')
 
-const REQUIRED_FIELDS = ['name', 'description', 'price', 'imageUrl', 'category']
+const REQUIRED_FIELDS = ['name', 'description', 'price', 'image_url', 'category']
 const SORTABLE_FIELDS = new Set(['price', 'name', 'createdAt'])
 
 const parseId = (raw) => {
