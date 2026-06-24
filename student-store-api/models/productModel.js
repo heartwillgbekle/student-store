@@ -17,16 +17,16 @@ class Product {
     return prisma.product.findUnique({ where: { id } })
   }
 
-  static async create({ name, description, price, image_url, category }) {
+  static async create({ name, description, price, imageUrl, category }) {
     return prisma.product.create({
-      data: { name, description, price, image_url, category },
+      data: { name, description, price, imageUrl, category },
     })
   }
 
-  static async update(id, { name, description, price, image_url, category }) {
+  static async update(id, { name, description, price, imageUrl, category }) {
     return prisma.product.update({
       where: { id },
-      data: { name, description, price, image_url, category },
+      data: { name, description, price, imageUrl, category },
     })
   }
 

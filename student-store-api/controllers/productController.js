@@ -21,6 +21,20 @@ const parseSort = (raw) => {
   return { ok: true, value: { field, direction } }
 }
 
+// Outbound: model returns `imageUrl`, JSON exposes `image_url`.
+const serializeProduct = (product) => {
+  if (!product) return product
+  const { imageUrl, ...rest } = product
+  return { ...rest, image_url: imageUrl }
+}
+
+// Inbound: request body uses `image_url`, model expects `imageUrl`.
+const denormalizeProductBody = (body) => {
+  if (!body) return body
+  const { image_url, ...rest } = body
+  return image_url !== undefined ? { ...rest, imageUrl: image_url } : rest
+}
+
 const listProducts = async (req, res) => {
   const sort = parseSort(req.query.sort)
   if (!sort.ok) {
@@ -33,7 +47,7 @@ const listProducts = async (req, res) => {
 
   try {
     const products = await Product.list({ category, sort: sort.value })
-    res.json({ products })
+    res.json({ products: products.map(serializeProduct) })
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch products' })
   }
@@ -49,7 +63,7 @@ const getProduct = async (req, res) => {
     if (!product) {
       return res.status(404).json({ error: `Product ${id} not found` })
     }
-    res.json({ product })
+    res.json({ product: serializeProduct(product) })
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch product' })
   }
@@ -63,8 +77,8 @@ const createProduct = async (req, res) => {
     }
   }
   try {
-    const product = await Product.create(body)
-    res.status(201).json({ product })
+    const product = await Product.create(denormalizeProductBody(body))
+    res.status(201).json({ product: serializeProduct(product) })
   } catch (err) {
     res.status(500).json({ error: 'Failed to create product' })
   }
@@ -83,8 +97,8 @@ const updateProduct = async (req, res) => {
     return res.status(400).json({ error: 'No updatable fields provided' })
   }
   try {
-    const product = await Product.update(id, allowed)
-    res.json({ product })
+    const product = await Product.update(id, denormalizeProductBody(allowed))
+    res.json({ product: serializeProduct(product) })
   } catch (err) {
     if (err.code === 'P2025') {
       return res.status(404).json({ error: `Product ${id} not found` })

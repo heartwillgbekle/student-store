@@ -14,11 +14,11 @@ async function seed() {
 
     // Load JSON data
     const productsData = JSON.parse(
-      fs.readFileSync(path.join(__dirname, '../data/products.json'), 'utf8')
+      fs.readFileSync(path.join(__dirname, 'data/products.json'), 'utf8')
     )
 
     const ordersData = JSON.parse(
-      fs.readFileSync(path.join(__dirname, '../data/orders.json'), 'utf8')
+      fs.readFileSync(path.join(__dirname, 'data/orders.json'), 'utf8')
     )
 
     // Seed products
@@ -28,7 +28,7 @@ async function seed() {
           name: product.name,
           description: product.description,
           price: product.price,
-          image_url: product.image_url,
+          imageUrl: product.image_url,
           category: product.category,
         },
       })

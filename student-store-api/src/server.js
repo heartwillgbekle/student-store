@@ -1,11 +1,19 @@
+require('dotenv').config();
+
 const express = require('express');
 const productController = require('../controllers/productController');
 const orderController = require('../controllers/orderController');
 const cors = require('cors');
 
 const app = express();
+const PORT = process.env.PORT || 3000;
+
 app.use(cors());
 app.use(express.json());
+
+app.get('/', (req, res) => {
+    res.json({ message: 'Welcome to the Student Store API' });
+});
 
 // Products
 const {listProducts, getProduct, createProduct, updateProduct, deleteProduct} = productController;

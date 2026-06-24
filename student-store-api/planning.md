@@ -18,7 +18,7 @@ The catalog row. Independent of any order.
 | `name`        | `String`    | yes      | —                    | Display name. |
 | `description` | `String`    | yes      | —                    | Short product blurb. |
 | `price`       | `Decimal`   | yes      | —                    | Stored as `Decimal(10, 2)`. See decision D1 below. |
-| `image_url`   | `String`    | yes      | —                    | Snake_case end-to-end (DB column, Prisma field, JSON field) to match the React frontend's expected response shape. See Decisions Log entry on the imageUrl flip-back. |
+| `imageUrl`    | `String`    | yes      | —                    | Mapped to column `image_url` via `@map`. JSON wire format is `image_url` (snake_case) — see the controller serializer entry in the Decisions Log. |
 | `category`    | `String`    | yes      | —                    | Free-form string for now (e.g. `"Apparel"`). A `Category` enum is deferred — categories are likely to grow and we don't want a migration for every new one. |
 | `createdAt`   | `DateTime`  | yes      | `now()`              | Useful for "newest products" sort later. |
 
@@ -324,7 +324,7 @@ Three small things that turned out to matter during implementation. Adding them 
 
 ## Decisions Log — Product Model
 
-- **Schema translation that went smoothly**: `Decimal(10, 2)` for `price` mapped cleanly from the planning doc to `@db.Decimal(10, 2)` in Prisma. The `@map("created_at")` annotation also kept the JS-side camelCase / DB-side snake_case split that D1 implied without any extra work — the model layer never has to think about the column name. (`image_url` was later flipped to snake_case end-to-end; see the dedicated Decisions Log entry below.)
+- **Schema translation that went smoothly**: `Decimal(10, 2)` for `price` mapped cleanly from the planning doc to `@db.Decimal(10, 2)` in Prisma. The `@map("image_url")` and `@map("created_at")` annotations also kept the JS-side camelCase / DB-side snake_case split that D1 implied without any extra work — the model layer never has to think about the column names.
 
 - **Field decision made during implementation that wasn't in the original spec**: split the model and controller into separate files (`models/productModel.js` + `controllers/productController.js`) instead of putting Express handlers directly in the model. The planning doc was silent on file layout; the split keeps the DB layer reusable from non-HTTP callers (scripts, future tests, the seed file) and matches the structure the `Order` controller will need when it has both HTTP-shaped validation *and* a `prisma.$transaction` block.
 
@@ -337,7 +337,7 @@ Three small things that turned out to matter during implementation. Adding them 
 ### Schema vs. spec gaps found
 
 - **No field-level gaps.** Every field in Section 1.1–1.3 is present in `schema.prisma` with the spec'd type, default, and nullability. No surprise fields in the schema either (no `updatedAt`, no `slug`, no soft-delete column) — the schema is exactly what the spec describes, nothing more.
-- **Column-name mappings extended past what the spec called out.** Spec mentioned `@map("image_url")` and `@map("created_at")` explicitly, but the schema also maps `total_price`, `order_id`, and `product_id` for consistency — every multi-word column lands as snake_case in Postgres while staying camelCase in JS. The spec was silent on these; treating them as a natural extension rather than a divergence. (Note: `image_url` was subsequently flipped to be snake_case end-to-end — Prisma field, JSON, frontend — so it no longer uses `@map`. See the Decisions Log entry below.)
+- **Column-name mappings extended past what the spec called out.** Spec mentioned `@map("image_url")` and `@map("created_at")` explicitly, but the schema also maps `total_price`, `order_id`, and `product_id` for consistency — every multi-word column lands as snake_case in Postgres while staying camelCase in JS. The spec was silent on these; treating them as a natural extension rather than a divergence.
 - **`OrderItem.quantity ≥ 1` is enforced in the controller, not the schema** — exactly as the spec called for at [Section 1.3](#L62). Confirmed the route handler rejects `quantity: 0` with `400 items[N].quantity must be a positive integer` rather than letting Prisma store the row. Documenting this here so future-me doesn't try to add a `@@check` thinking it was forgotten.
 
 ### Cascade delete verification
@@ -377,15 +377,20 @@ Schema, spec, and behavior are aligned. No code changes triggered by this audit;
 
 ---
 
-## Decisions Log — `image_url` Snake_case Flip
+## Decisions Log — `image_url` JSON Wire Format (Controller Serializer)
 
-- **What changed**: Originally the Product field was `imageUrl` on the Prisma model and in JSON, with `@map("image_url")` keeping the underlying Postgres column snake_case. The frontend's existing reads (`product.image_url` in `ProductCard.jsx` and `ProductDetail.jsx`) were updated to camelCase to align with that contract. Later that decision was reverted: the field is now `image_url` everywhere — DB column, Prisma model, JSON response, frontend reads. The `@map` annotation was removed.
+- **The decision**: the Product `image_url` field is **snake_case in the JSON wire format only**. The Prisma schema field, the JS variable name, the model layer — all stay `imageUrl` (camelCase, the JS convention). The `productController` translates at the HTTP boundary in both directions.
 
-- **Why the flip**: The frontend's source-of-truth seed data (`data/products.json`) and the React component reads were already snake_case. The earlier camelCase choice was theoretically cleaner (JS convention, consistent with `totalPrice`, `orderId`, `productId`, `createdAt`) but in practice it meant constantly translating between two case styles at every layer. Going snake_case end-to-end for this one field eliminated the translation step.
+- **Why**: the React frontend's existing reads (`product.image_url` in `ProductCard.jsx` and `ProductDetail.jsx`) and the seed data file (`data/products.json`) are both snake_case. Two paths to align them: (a) rename the Prisma field to `image_url` end-to-end, or (b) keep the JS-side conventions clean and translate at the JSON boundary. Chose (b) because:
+  1. **Every other JSON field is camelCase** — `totalPrice`, `orderId`, `productId`, `createdAt`. Renaming `imageUrl` alone in the Prisma schema would single it out as inconsistent in the *model layer*, where future contributors are most likely to notice.
+  2. **The controller is already the precedent for this kind of boundary translation.** `serializeOrder` in `orderController.js` already does the same thing for `Decimal` → JSON number (D1, [planning.md:76](#L76)). Adding `serializeProduct` for `imageUrl` → `image_url` is the same shape.
+  3. **No DB migration needed.** Keeping `@map("image_url")` on the Prisma field means the underlying column stays the same and Prisma's generated client is unchanged.
 
-- **What this costs**:
-  - **Inconsistency across the schema.** Every other multi-word JSON field is camelCase (`totalPrice`, `orderId`, `productId`, `createdAt`). `image_url` is now the lone snake_case outlier. A future developer reading the API responses may briefly think it's a bug — worth knowing.
-  - **The lone exception requires explanation.** That's what this Decisions Log entry exists for.
-  - **No DB-level cost.** The actual Postgres column was already `image_url` (set by `@map`), so removing the `@map` and renaming the Prisma field doesn't require a real SQL migration — `prisma db pull` or `prisma generate` is sufficient to regenerate the client. The migration file under `prisma/migrations/` stays as-is; it already names the column `image_url`.
+- **How it works in `productController.js`**:
+  - `serializeProduct(product)` — outbound — destructures `imageUrl` and re-keys it to `image_url` on the response. Applied to every product before `res.json(...)` in `list`, `get`, `create`, and `update`.
+  - `denormalizeProductBody(body)` — inbound — destructures `image_url` from the incoming request body and re-keys it to `imageUrl` before passing to the model. Applied in `create` and `update`.
+  - `REQUIRED_FIELDS` is the JSON-side list (`['name', 'description', 'price', 'image_url', 'category']`) so validation messages reference the field name the client actually sent.
 
-- **What it doesn't change**: The Section 3 transactional flow, the cascade rules, the validation order, the error shapes — nothing else moves. This is a pure JSON-key rename, propagated consistently through the stack.
+- **What this costs**: a tiny bit of CPU per request to clone-and-re-key one field, and one more thing for a maintainer to remember (the model API doesn't match the HTTP API for this one field). The trade is that the snake_case quirk is contained to one file (`productController.js`) and explained in one place (this Decisions Log entry), rather than scattered across the Prisma schema, model, seed, and migration files.
+
+- **The boundary is the contract**: if someone ever needs to call `Product.create({ imageUrl: '...' })` from a non-HTTP context (a test, a seed script, a future admin worker), they use camelCase — the model never saw the snake_case form. The only place `image_url` exists in the codebase is the JSON contract and the frontend that consumes it.
