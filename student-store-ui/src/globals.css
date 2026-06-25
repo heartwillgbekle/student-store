@@ -1,37 +1,45 @@
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@100;200;300;400;500;700;900&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=DM+Sans:wght@300;400;500;600&display=swap");
 
 :root {
-  --side-padding: 40px;
-  --content-width: 1100px;
-  --dark-blue: #2c4047;
-  --bright-green: #00c385;
-  --pure-white: #fff;
-  --grey-bg: #f7f7f7;
-  --accent-orange: #ff9017;
-  --bright-red: #fe3210;
-  --muted: #969696;
-  --font-dark: #212121;
-  --font-light: #5b5b5b;
-  --border-color: #e4e4e4;
-  --star-color-filled: #e5a800;
-  --star-color-empty: #cbd4e6;
-}
+  --background: #0D0D12;
+  --foreground: #E8E6F0;
+  --card: #13131A;
+  --card-foreground: #E8E6F0;
+  --primary: #E8E6F0;
+  --primary-foreground: #0D0D12;
+  --secondary: #1A1A24;
+  --secondary-foreground: #E8E6F0;
+  --muted: #1E1E2A;
+  --muted-foreground: #7A7890;
+  --accent: #7C3AED;
+  --accent-foreground: #FFFFFF;
+  --destructive: #d4183d;
+  --border: rgba(232, 230, 240, 0.08);
+  --input-background: #1A1A24;
+  --ring: rgba(124, 58, 237, 0.5);
 
-body {
-  margin: 0;
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen", "Ubuntu", "Cantarell",
-    "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  background: var(--grey-bg);
-}
+  --radius: 0.25rem;
 
-code {
-  font-family: source-code-pro, Menlo, Monaco, Consolas, "Courier New", monospace;
+  --font-display: "Playfair Display", Georgia, serif;
+  --font-sans: "DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+
+  --content-width: 1200px;
+  --side-padding: 24px;
 }
 
 * {
   box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 1.5;
+  background: var(--background);
+  color: var(--foreground);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 a,
@@ -45,57 +53,62 @@ h4,
 h5,
 h6,
 ul,
-ol {
+ol,
+li,
+button,
+input {
   margin: 0;
   padding: 0;
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen", "Ubuntu", "Cantarell",
-    "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
-  color: var(--font-dark);
+  color: inherit;
+  font-family: inherit;
+}
+
+ul,
+ol {
+  list-style: none;
 }
 
 a {
   text-decoration: none;
-  color: var(--bright-green);
+  color: inherit;
 }
 
-@media screen and (max-width: 1100px) {
-  :root {
-    --content-width: 900px;
-  }
+h1, h2, h3, h4 {
+  font-family: var(--font-display);
+  font-weight: 500;
+  line-height: 1.15;
+  color: var(--foreground);
 }
 
-@media screen and (max-width: 1000px) {
-  :root {
-    --content-width: 800px;
-  }
+button {
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-family: inherit;
 }
 
-/* Rules for sizing the icon. */
-.material-icons.md-18 {
-  font-size: 18px;
-}
-.material-icons.md-24 {
-  font-size: 24px;
-}
-.material-icons.md-36 {
-  font-size: 36px;
-}
-.material-icons.md-48 {
-  font-size: 40px;
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
 }
 
-/* Rules for using icons as black on a light background. */
-.material-icons.md-dark {
-  color: rgba(0, 0, 0, 0.54);
-}
-.material-icons.md-dark.md-inactive {
-  color: rgba(0, 0, 0, 0.26);
+input {
+  border: none;
+  background: none;
+  outline: none;
+  color: var(--foreground);
 }
 
-/* Rules for using icons as white on a dark background. */
-.material-icons.md-light {
-  color: rgba(255, 255, 255, 1);
+img {
+  display: block;
+  max-width: 100%;
 }
-.material-icons.md-light.md-inactive {
-  color: rgba(255, 255, 255, 0.3);
+
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, "Courier New", monospace;
 }
+
+.material-icons.md-18 { font-size: 18px; }
+.material-icons.md-24 { font-size: 24px; }
+.material-icons.md-36 { font-size: 36px; }
+.material-icons.md-48 { font-size: 40px; }

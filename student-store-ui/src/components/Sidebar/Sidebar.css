@@ -1,46 +1,81 @@
 .Sidebar {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  width: 100%;
-  flex: 1;
-  transition: all 0.2s cubic-bezier(0.215, 0.61, 0.355, 1);
   position: fixed;
+  inset: 0;
   z-index: 100;
-  top: 0px;
-  height: 100vh;
-  padding: 0;
-  overflow-y: scroll;
-  padding-bottom: 2rem;
-  background: var(--dark-blue);
-  border-right: solid 1px white;
-}
-.Sidebar.closed {
-  width: 60px;
-}
-.Sidebar.open {
-  width: 575px;
-}
-.Sidebar .wrapper {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  width: 100%;
-}
-.Sidebar .toggle-button {
-  margin-top: 20px;
-  transition: all 0.2s cubic-bezier(0.075, 0.82, 0.165, 1);
-}
-/* .Sidebar .toggle-button i {
-  color: white;
-  cursor: pointer;
-} */
-.Sidebar .toggle-button.open {
-  transform: rotateY(180deg);
+  pointer-events: none;
 }
 
-.Sidebar i {
-  margin-right: 10px;
-  cursor: pointer;
-  color: white;
+.Sidebar.open {
+  pointer-events: auto;
+}
+
+.Sidebar .overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(13, 13, 18, 0.6);
+  backdrop-filter: blur(2px);
+  opacity: 0;
+  transition: opacity 0.25s ease;
+}
+
+.Sidebar.open .overlay {
+  opacity: 1;
+}
+
+.Sidebar .drawer {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  max-width: 440px;
+  background: var(--card);
+  border-left: 1px solid var(--border);
+  box-shadow: -16px 0 48px rgba(0, 0, 0, 0.6);
+  display: flex;
+  flex-direction: column;
+  transform: translateX(100%);
+  transition: transform 0.3s ease;
+}
+
+.Sidebar.open .drawer {
+  transform: translateX(0);
+}
+
+.Sidebar .drawer-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 22px 24px;
+  border-bottom: 1px solid var(--border);
+}
+
+.Sidebar .drawer-head h2 {
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 500;
+}
+
+.Sidebar .drawer-head .close-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--foreground);
+  transition: background 0.15s ease;
+}
+
+.Sidebar .drawer-head .close-btn:hover {
+  background: var(--secondary);
+}
+
+.Sidebar .drawer-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
 }

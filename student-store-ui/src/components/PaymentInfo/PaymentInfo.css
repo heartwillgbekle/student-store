@@ -1,47 +1,75 @@
 .PaymentInfo {
-  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
-.PaymentInfo > h3 {
-  color: white;
+
+.PaymentInfo h3 {
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--foreground);
   display: flex;
   align-items: center;
-  justify-content: center;
+  gap: 8px;
 }
-.PaymentInfo > h3 > span {
-  margin-left: 10px;
+
+.PaymentInfo h3 .material-icons {
+  font-size: 18px;
+  color: var(--muted-foreground);
 }
-.PaymentInfo .label {
-  color: white;
-}
-.PaymentInfo .is-danger {
-  color: var(--bright-red);
-}
+
 .PaymentInfo .input-field {
-  width: 100%;
-  margin: 5px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
+
 .PaymentInfo .input-field .label {
-  color: white;
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+  font-weight: 500;
 }
-.PaymentInfo .input-field .control {
-  width: 100%;
-  margin: 5px 0;
-}
+
 .PaymentInfo .input-field .control input {
   width: 100%;
-  height: 36px;
-  padding: 0 15px;
-  border-radius: 8px;
-  border: solid 1px #e4e4e4;
-  flex: 1;
-  font-size: 16px;
+  height: 42px;
+  padding: 0 14px;
+  background: var(--input-background);
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  font-size: 14px;
+  color: var(--foreground);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
+
+.PaymentInfo .input-field .control input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--ring);
+  outline: none;
+}
+
+.PaymentInfo .is-danger {
+  color: var(--destructive);
+  font-size: 13px;
+  min-height: 18px;
+}
+
 .PaymentInfo button {
-  margin-top: 10px;
-  padding: 12px 18px;
-  font-size: 18px;
-  cursor: pointer;
-  background: transparent;
-  border: solid 1px white;
-  color: white;
+  width: 100%;
+  background: var(--accent);
+  color: var(--accent-foreground);
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  padding: 14px 18px;
+  border-radius: var(--radius);
+  text-transform: uppercase;
+  transition: opacity 0.15s ease;
+}
+
+.PaymentInfo button:hover:not(:disabled) {
+  opacity: 0.9;
 }

@@ -1,77 +1,128 @@
 .ProductCard {
-  height: 330px;
-  width: 250px;
-  background: var(--pure-white);
   display: flex;
   flex-direction: column;
-  border: solid 1px var(--border-color);
+  background: transparent;
 }
-.ProductCard .media {
-  height: 250px;
-  width: 100%;
-}
-.ProductCard .media img {
-  height: 250px;
-  width: 248px;
-}
-.ProductCard .product-info {
-  flex: 1;
-  display: flex;
-  border-top: solid 1px var(--border-color);
-}
-.ProductCard .info {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  padding: 8px 12px;
-}
-.ProductCard .info .product-name {
-  font-size: 15px;
-  font-weight: 500;
-}
-.ProductCard .info .product-price {
-  font-size: 14px;
-}
-.ProductCard .actions {
-  width: 80px;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-around;
-}
-.ProductCard .actions .quantity {
-  width: 80px;
-  display: flex;
-  flex-direction: row;
-  justify-content: flex-end;
-  padding: 5px;
-}
-.ProductCard .actions .quantity .amt {
-  background: var(--accent-orange);
-  color: white;
-  width: 30px;
-  height: 20px;
-  border-radius: 4px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.ProductCard .actions .buttons {
-  width: 80px;
-  height: 100%;
 
-  display: flex;
-  align-items: flex-start;
-  justify-content: flex-end;
+.ProductCard .media {
+  position: relative;
+  aspect-ratio: 4 / 5;
+  background: var(--muted);
+  overflow: hidden;
+  margin-bottom: 14px;
 }
-.ProductCard .actions .buttons i {
-  width: 20px;
-  height: 20px;
-  border: solid 1px var(--bright-green);
-  color: var(--bright-green);
-  cursor: pointer;
+
+.ProductCard .media a {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.ProductCard .media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  transition: transform 0.5s ease;
+}
+
+.ProductCard:hover .media img {
+  transform: scale(1.04);
+}
+
+.ProductCard .media .add-overlay {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(124, 58, 237, 0.95);
+  color: var(--accent-foreground);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  padding: 14px 0;
+  text-align: center;
+  transform: translateY(100%);
+  transition: transform 0.3s ease;
+}
+
+.ProductCard:hover .media .add-overlay {
+  transform: translateY(0);
+}
+
+.ProductCard .media .quantity-pill {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: var(--accent);
+  color: var(--accent-foreground);
+  font-size: 11px;
+  font-weight: 600;
+  min-width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  padding: 0 7px;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 5px;
-  margin: 10px 5px;
+  line-height: 1;
+}
+
+.ProductCard .category-eyebrow {
+  font-size: 10px;
+  color: var(--muted-foreground);
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  margin-bottom: 6px;
+}
+
+.ProductCard .product-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--foreground);
+  line-height: 1.35;
+  margin-bottom: 6px;
+}
+
+.ProductCard .product-price {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--foreground);
+  margin-bottom: 10px;
+}
+
+.ProductCard .row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ProductCard .row .btn-step {
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  color: var(--foreground);
+  background: var(--muted);
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.ProductCard .row .btn-step:hover {
+  background: var(--secondary);
+  border-color: rgba(232, 230, 240, 0.2);
+}
+
+.ProductCard .row .btn-step .material-icons {
+  font-size: 16px;
+}
+
+.ProductCard .row .qty-label {
+  font-size: 12px;
+  color: var(--muted-foreground);
+  margin-left: auto;
 }
