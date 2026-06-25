@@ -394,3 +394,24 @@ Schema, spec, and behavior are aligned. No code changes triggered by this audit;
 - **What this costs**: a tiny bit of CPU per request to clone-and-re-key one field, and one more thing for a maintainer to remember (the model API doesn't match the HTTP API for this one field). The trade is that the snake_case quirk is contained to one file (`productController.js`) and explained in one place (this Decisions Log entry), rather than scattered across the Prisma schema, model, seed, and migration files.
 
 - **The boundary is the contract**: if someone ever needs to call `Product.create({ imageUrl: '...' })` from a non-HTTP context (a test, a seed script, a future admin worker), they use camelCase — the model never saw the snake_case form. The only place `image_url` exists in the codebase is the JSON contract and the frontend that consumes it.
+
+---
+
+## Final Spec Reconciliation: Project Complete
+
+### Full-system audit result
+- **All 11 endpoints from Section 2 match the API contract end-to-end.** Walked the customer-order flow (the spec's Section 3 "important one") top to bottom — frontend cart → `POST /orders` body → controller validation → transactional insert → 201 response shape — and the request/response on the wire are byte-for-byte what `planning.md` §2.9 promises.
+- **Spec was silent on CORS.** The implementation enables `cors()` globally in `src/server.js` so the Vite dev server (`http://localhost:5173`) can call the API on port 3000. Open by design for the dev/academic context; production would need an origin allowlist. Treating this as an implementation note rather than a divergence — the spec scoped the contract, not the transport-layer plumbing.
+- **Spec was silent on `dotenv` loading and `PORT` precedence.** `server.js` calls `require('dotenv').config()` before reading `process.env.PORT`, falling back to `3000`. Same category as CORS: necessary plumbing not in the contract.
+- **Pre-transaction DB failures map to `500 "Failed to create order"`** — the same code/message §2.9 reserved for "transaction rolled back." Practically equivalent (no partial write either way), but noting that the `500` arm covers two cases now: failed `findMany` lookup and failed `$transaction`.
+- **Indexed validation errors** (`items[2].quantity must be a positive integer`) are stricter than the bare-array example in §2.9. Aligns with the §3.1 "reject with 400 listing the offending index" requirement, so the contract example is the loose one; implementation matches the flow doc.
+
+### Gaps resolved during frontend integration
+- **`CheckoutSuccess` was reading a shape the API doesn't return.** The component originally destructured `order.purchase.receipt.lines[]`, but the 201 response is `{ order: { id, customer, totalPrice, status, createdAt, orderItems[] } }` (§2.9). Every successful checkout fell through to the "confirmation email" placeholder. **Resolved** by rewriting `CheckoutSuccess.jsx` to render directly from `order.orderItems` + `order.totalPrice` — the spec's response shape stands; the frontend was written against an older mock and is now aligned.
+- **`dorm_number` was collected by the frontend but never sent.** Removed from `userInfo` state and from the `PaymentInfo` form. The spec doesn't define a delivery location field, so the UI no longer pretends to collect one. If a future `Order.deliveryLocation` column is added, the form can come back with a real binding.
+- **No frontend-side empty-cart / empty-name guards.** **Resolved**: `handleOnCheckout` now short-circuits with a local error message when `userInfo.name` is empty or the cart has no items, so the avoidable round-trip is gone. Server validation remains the source of truth — the client guards are duplicate-but-cheap UX.
+- **Customer name is `.trim()`-ed server-side before persisting** ([orderController.js:87](controllers/orderController.js#L87)). Spec says "non-empty string"; trimming is a strictly safer interpretation. Captured here so the spec-vs-code diff is complete.
+- **Duplicate `productId`s in `items` are accepted** and write two `OrderItem` rows. Already documented in §3.4; calling it out here too so the reconciliation list is exhaustive.
+
+### What the spec enabled during this project
+Writing §3.1 — the step-by-step transactional flow — before touching the controller meant every guard had an obvious home: shape-validate → bulk `findMany` → referential check → compute total → `$transaction`. When the validator-then-insert ordering came up later as "should we just catch the FK error?", §3.4 had already explained why the up-front check is preferable, and the answer was a doc-lookup instead of a rederivation. The §2 endpoint table also caught the `CheckoutSuccess` mismatch immediately — the moment the frontend's expected shape (`purchase.receipt.lines`) was placed next to the spec's response (`orderItems[]`), the gap was visible without any debugging.

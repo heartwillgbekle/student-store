@@ -17,7 +17,7 @@ function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activeCategory, setActiveCategory] = useState("All Categories");
   const [searchInputValue, setSearchInputValue] = useState("");
-  const [userInfo, setUserInfo] = useState({ name: "", dorm_number: ""});
+  const [userInfo, setUserInfo] = useState({ name: "" });
   const [products, setProducts] = useState([]);
   const [cart, setCart] = useState({});
   const [isFetching, setIsFetching] = useState(false);
@@ -55,20 +55,25 @@ function App() {
   }, []);
 
   const handleOnCheckout = async () => {
+    const customer = userInfo.name.trim();
+    if (!customer) {
+      setError("Please enter your name before checking out");
+      return;
+    }
+    const items = Object.entries(cart)
+      .filter(([, quantity]) => quantity > 0)
+      .map(([productId, quantity]) => ({
+        productId: Number(productId),
+        quantity,
+      }));
+    if (items.length === 0) {
+      setError("Your cart is empty");
+      return;
+    }
+
     setIsCheckingOut(true);
     try {
-      const items = Object.entries(cart)
-        .filter(([, quantity]) => quantity > 0)
-        .map(([productId, quantity]) => ({
-          productId: Number(productId),
-          quantity,
-        }));
-
-      const res = await axios.post(`${API_BASE_URL}/orders`, {
-        customer: userInfo.name,
-        items,
-      });
-
+      const res = await axios.post(`${API_BASE_URL}/orders`, { customer, items });
       setOrder(res.data.order);
       setCart({});
       setError(null);
