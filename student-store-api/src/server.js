@@ -3,6 +3,7 @@ require('dotenv').config();
 const express = require('express');
 const productController = require('../controllers/productController');
 const orderController = require('../controllers/orderController');
+const orderItemController = require('../controllers/orderItemController');
 const cors = require('cors');
 
 const app = express();
@@ -30,6 +31,11 @@ app.get('/orders/:id', getOrder);
 app.post('/orders', createOrder);
 app.put('/orders/:id', updateOrder);
 app.delete('/orders/:id', deleteOrder);
+
+// Order Items
+const {listOrderItems, addItemToOrder} = orderItemController;
+app.get('/order-items', listOrderItems);
+app.post('/orders/:order_id/items', addItemToOrder);
 
 app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);

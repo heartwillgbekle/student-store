@@ -1,0 +1,123 @@
+.PastOrders {
+  background: var(--background);
+  padding: 56px var(--side-padding) 80px;
+}
+
+.PastOrders .content {
+  max-width: var(--content-width);
+  margin: 0 auto;
+}
+
+.PastOrders .header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 24px;
+}
+
+.PastOrders .header h2 {
+  font-family: var(--font-display);
+  font-size: 26px;
+  font-weight: 500;
+}
+
+.PastOrders .count {
+  font-size: 13px;
+  color: var(--muted-foreground);
+}
+
+.PastOrders .muted {
+  color: var(--muted-foreground);
+  font-size: 14px;
+  padding: 28px 0;
+}
+
+.PastOrders .error {
+  color: var(--destructive);
+  font-size: 14px;
+  padding: 12px 0;
+}
+
+.PastOrders .order-list {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--card);
+  overflow: hidden;
+}
+
+.PastOrders .order-row {
+  display: grid;
+  grid-template-columns: 90px 1fr 1.5fr 110px 110px;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+}
+
+.PastOrders .order-row:last-child {
+  border-bottom: none;
+}
+
+.PastOrders .order-head {
+  background: var(--secondary);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+  font-weight: 500;
+}
+
+.PastOrders .order-id {
+  color: var(--accent);
+  font-weight: 600;
+  border-bottom: 1px solid transparent;
+  transition: border-bottom-color 0.15s ease;
+}
+
+.PastOrders .order-id:hover {
+  border-bottom-color: var(--accent);
+}
+
+.PastOrders .status {
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  display: inline-block;
+  justify-self: start;
+}
+
+.PastOrders .status-pending {
+  color: var(--accent);
+  border-color: rgba(124, 58, 237, 0.35);
+  background: rgba(124, 58, 237, 0.08);
+}
+
+.PastOrders .status-completed {
+  color: var(--foreground);
+  background: var(--secondary);
+}
+
+.PastOrders .status-cancelled {
+  color: var(--destructive);
+  border-color: rgba(212, 24, 61, 0.35);
+}
+
+.PastOrders .total-col {
+  text-align: right;
+  font-weight: 600;
+}
+
+@media (max-width: 720px) {
+  .PastOrders .order-row {
+    grid-template-columns: 60px 1fr 90px;
+    gap: 10px;
+  }
+  .PastOrders .order-row > :nth-child(3),
+  .PastOrders .order-row > :nth-child(4) {
+    display: none;
+  }
+}

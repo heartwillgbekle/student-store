@@ -64,13 +64,13 @@
   letter-spacing: 0.02em;
   background: var(--muted);
   border: 1px solid var(--border);
-  color: rgba(232, 230, 240, 0.6);
+  color: rgba(13, 13, 18, 0.65);
   transition: all 0.15s ease;
   white-space: nowrap;
 }
 
 .SubNavbar .category-menu li button:hover {
-  border-color: rgba(232, 230, 240, 0.2);
+  border-color: rgba(13, 13, 18, 0.25);
   color: var(--foreground);
 }
 

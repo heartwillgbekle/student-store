@@ -5,6 +5,8 @@ import SubNavbar from "../SubNavbar/SubNavbar";
 import Sidebar from "../Sidebar/Sidebar";
 import Home from "../Home/Home";
 import ProductDetail from "../ProductDetail/ProductDetail";
+import PastOrders from "../PastOrders/PastOrders";
+import OrderDetail from "../OrderDetail/OrderDetail";
 import NotFound from "../NotFound/NotFound";
 import { removeFromCart, addToCart, getQuantityOfItemInCart, getTotalItemsInCart } from "../../utils/cart";
 import "./App.css";
@@ -16,6 +18,9 @@ function Header({ toggleSidebar, cartCount }) {
     <header className="header">
       <div className="container">
         <Link to="/" className="brand">Student Store</Link>
+        <nav className="header-nav">
+          <Link to="/orders" className="nav-link">Past Orders</Link>
+        </nav>
         <div className="spacer" />
         <button className="icon-btn" onClick={toggleSidebar} aria-label="Open bag">
           <i className="material-icons">shopping_bag</i>
@@ -176,9 +181,6 @@ function App() {
   return (
     <div className="App">
       <BrowserRouter>
-        <div className="announcement-bar">
-          Complimentary dorm delivery on orders over $50 &nbsp;·&nbsp; Use code STUDENT15 for 15% off
-        </div>
         <Header toggleSidebar={toggleSidebar} cartCount={cartCount} />
         <Sidebar
           cart={cart}
@@ -222,6 +224,8 @@ function App() {
                   />
                 }
               />
+              <Route path="/orders" element={<PastOrders />} />
+              <Route path="/orders/:orderId" element={<OrderDetail />} />
               <Route
                 path="/:productId"
                 element={

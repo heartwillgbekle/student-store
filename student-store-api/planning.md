@@ -89,6 +89,12 @@ The client sends `{ productId, quantity }` only. The server looks up each produc
 **D4 — `OrderItem.price` is denormalized (a snapshot), not derived.**
 We copy `Product.price` onto each `OrderItem` at creation time so historical orders remain accurate when a product's price changes (or when the product is later deleted). `OrderItem.price` is the source of truth for what the customer paid; `Product.price` is the source of truth for what the product *currently* costs.
 
+**D5 — Order items are *append-only* after creation, not strictly immutable.**
+The original spec said items are immutable through any endpoint, with the policy "if items need to change, cancel and re-create the order" (still the rule for `PUT /orders/:id`). With the new stretch endpoint `POST /orders/:order_id/items` (§2.13), we relax this to: items can be **appended**, never updated or deleted in place. The `totalPrice` is recomputed server-side inside the same transaction, so the D4 snapshot invariant (`Order.totalPrice == Σ (OrderItem.price × quantity)`) still holds at every observable instant. Why we didn't go further:
+1. **In-place updates would silently invalidate price snapshots.** Editing a line's `quantity` after the fact is fine; editing its `price` would let a current `Product.price` overwrite the historical snapshot from D4. Easier to forbid the whole shape than to carve out exceptions.
+2. **Deletions would silently reduce historical totals.** A receipt that used to read `$45.97` shouldn't quietly become `$29.99` because someone deleted a line. The right tool for "I added the wrong thing" is still cancel + re-create the order.
+3. **Status interactions are out of scope for this pass.** The current implementation lets you append to a `completed` or `cancelled` order. That's a state-machine question (when does the order "lock"?) and the spec leaves it open intentionally — we'd want to design a status state machine first and then layer the append rule on top, not bolt an ad-hoc `if (status === 'completed') reject` check into the controller. Calling this out explicitly so a future reader knows it's deferred, not forgotten.
+
 ---
 
 ## Section 2: API Contract
@@ -117,6 +123,8 @@ HTTP status carries the category (`400` validation, `404` missing, `500` server)
 | 9 | POST   | `/orders`        | **Create an order plus its items, atomically.** |
 | 10 | PUT   | `/orders/:id`    | Update an order's `customer` and/or `status`. Items are immutable. |
 | 11 | DELETE | `/orders/:id`   | Delete an order (cascades to its `OrderItem` rows). |
+| 12 | GET    | `/order-items`  | List all order items in the database. |
+| 13 | POST   | `/orders/:order_id/items` | Add a new line item to an existing order and recompute `totalPrice` atomically. |
 
 #### 1. `GET /`
 - **200**: `{ "message": "Welcome to the Student Store API" }`
@@ -243,7 +251,7 @@ Validation (all 400):
 
 #### 10. `PUT /orders/:id`
 
-Update an order's `customer` and/or `status`. The line items (`orderItems`) and the computed `totalPrice` are **not** mutable through this endpoint — the items are the source of truth for the total, and rewriting them after the fact would invalidate the snapshot guarantees from D4. If items truly need to change, the correct flow is to cancel the order and create a new one.
+Update an order's `customer` and/or `status`. The line items (`orderItems`) and the computed `totalPrice` are **not** mutable through this endpoint — the items are the source of truth for the total, and rewriting them after the fact would invalidate the snapshot guarantees from D4. If items truly need to change, the supported paths are: (a) **append** a new line via `POST /orders/:order_id/items` (§2.13, governed by D5), or (b) cancel the order and create a new one. In-place edits and deletions of existing items remain unsupported on purpose.
 
 - **Body**: any subset of `{ customer, status }`. `status` must be one of `pending`, `completed`, `cancelled`.
 - **200**: `{ "order": Order }` — same shape as `GET /orders/:id`, with `orderItems` embedded.
@@ -258,6 +266,69 @@ Update an order's `customer` and/or `status`. The line items (`orderItems`) and 
 - **204**: empty body. Cascade removes `OrderItem` rows referencing this order (per D2/[planning.md:49](#L49) — and this is the *correct* default, since line items have no meaning without their parent order).
 - **400** — `{ "error": "Invalid order id" }` if `:id` is non-numeric.
 - **404** — `{ "error": "Order 42 not found" }`.
+
+#### 12. `GET /order-items`
+
+List every `OrderItem` row in the database. This is the inventory-of-line-items view — a flat denormalized list useful for analytics ("which products move the most?") and as the building block for the upcoming Past Orders pages on the frontend. Per-order items are still embedded in the `Order` response (see §2.7), so this endpoint exists for the cases where the *items* are the unit of interest, not the orders that own them.
+
+- **200**: `{ "orderItems": OrderItem[] }`
+
+`OrderItem` JSON shape — same fields as the embedded form in §2.7, with `price` coerced to a JSON number per D1:
+```json
+{
+  "id": 5,
+  "orderId": 3,
+  "productId": 1,
+  "quantity": 2,
+  "price": 29.99
+}
+```
+
+**Query parameters** — optional:
+
+| Param      | Type    | Effect                                                |
+|------------|---------|-------------------------------------------------------|
+| `orderId`  | integer | Filter to items belonging to this order. Returns `[]` if the order has no items (or doesn't exist — we don't probe the parent on this path; if the caller needs a 404 for missing orders, they should use `GET /orders/:id`). |
+
+**Default behavior** (no params): return every `OrderItem` ordered by `id` ascending. Stable internal default; not part of the contract.
+
+**Errors**
+- **400** — `{ "error": "Invalid orderId" }` if `orderId` is provided but isn't a positive integer.
+
+#### 13. `POST /orders/:order_id/items`
+
+Append a new line item to an existing order. The parent order's `totalPrice` is recomputed inside the same transaction so the snapshot invariant from D4 still holds (`Order.totalPrice` always equals `Σ (OrderItem.price × quantity)` over its rows).
+
+This endpoint is a **deliberate amendment** to the original spec, which declared in §2.10 and decision D4 that order items are immutable after creation. The new rule (recorded as **D5** below) is: **items can be *appended* to an order, but never modified or deleted; `totalPrice` is recomputed by the server.** Appends are safe — they extend the historical record monotonically — whereas in-place edits would invalidate the price snapshot.
+
+- **Body**:
+  ```json
+  { "productId": 1, "quantity": 2 }
+  ```
+- **201**: `{ "order": Order }` — the **full** parent order with the newly-added item embedded in `orderItems` and `totalPrice` reflecting the new sum. Same shape as `GET /orders/:id`. We return the whole order (not just the new item) because the most common caller need is "show the user the updated order," and forcing them to do a follow-up `GET /orders/:order_id` is a wasted round-trip.
+
+**Validation** (all `400`, all checked before any DB write):
+- `:order_id` parses to a positive integer.
+- `productId` is a positive integer that exists in `Product`.
+- `quantity` is a positive integer ≥ 1.
+
+**Transactional behavior** — runs inside a single `prisma.$transaction`:
+1. Re-fetch the order (inside the transaction) to confirm it still exists. If it's gone (deleted between request arrival and transaction start), return **404**.
+2. Fetch the current `Product` row for `productId` and capture its `price` — this becomes the snapshot `OrderItem.price` per D4. (Even though §2.13 reuses the existing price-snapshot rule, the lookup happens *inside* the transaction here so we can't race a product deletion between price-read and item-insert.)
+3. Insert the new `OrderItem` row.
+4. Recompute `totalPrice` as `Σ (price × quantity)` over the order's items (including the new one) and update the `Order` row.
+5. Re-read the order with `include: { orderItems: true }` and return it.
+
+Steps 2–4 must commit together or roll back together. A partial write where the item exists but `totalPrice` wasn't recomputed would silently break the D4 invariant for every future reader.
+
+**Error cases**
+- **400** — `{ "error": "Invalid order id" }` if `:order_id` is non-numeric.
+- **400** — `{ "error": "productId must be a positive integer" }` / `{ "error": "quantity must be a positive integer" }`.
+- **400** — `{ "error": "Product 999 does not exist" }` (referential check).
+- **404** — `{ "error": "Order 42 not found" }` (parent order doesn't exist).
+- **500** — `{ "error": "Failed to add item to order" }` (transaction rolled back; nothing was written, `totalPrice` is unchanged).
+
+**What does *not* change**: the order's `status` is **not** touched by appending an item. A `completed` or `cancelled` order can still have items appended through this endpoint — see D5 for the rationale (the spec leaves the "lock items on completion" policy to a future state-machine pass; for now the only invariant we enforce is the D4 snapshot).
 
 ---
 
@@ -319,6 +390,43 @@ Three small things that turned out to matter during implementation. Adding them 
 - **`Decimal` → number serialization.** Per D1, Prisma returns `Decimal.js` instances for `totalPrice` and `OrderItem.price`. These JSON-stringify as **strings** (e.g. `"29.99"`), but the response shape in Section 2.7/2.9 shows them as JSON numbers (`29.99`). The controller serializes via a `Number(...)` coercion before sending. The contract numbers, the model returns `Decimal`, the controller bridges. Don't move the coercion into the model — `Decimal` is the right representation for the `Σ (price × quantity)` math; precision only needs to be flattened at the JSON boundary.
 
 - **The order's `status` is always `"pending"` on creation.** The client cannot set it via `POST /orders`. Any `status` field in the request body is silently ignored — the model hardcodes `status: 'pending'` in the `data` block. Mutating an order's status is what `PUT /orders/:id` is for. This is a deliberate restriction: an order that arrives already-`completed` would skip the workflow that an order is supposed to go through.
+
+### 3.5 Transactional Flow — `POST /orders/:order_id/items` (append-item, recompute total)
+
+The "append a line item" path runs as its own atomic operation. Either the new `OrderItem` row, **and** the recomputed parent `Order.totalPrice`, are both persisted — or neither is. There must never be an `Order` whose `totalPrice` doesn't reconcile to the sum of its current items (the D4 invariant).
+
+**Step-by-step**
+
+1. **Shape-validate the request.** Reject with `400` if `:order_id` isn't a positive integer, or if `productId`/`quantity` are missing/non-integer/non-positive. No DB call has happened.
+
+2. **Confirm the product exists (referential check, pre-transaction).** `prisma.product.findUnique({ where: { id: productId } })`. If absent, return `400 "Product N does not exist"`. We don't open a transaction for a request we already know will fail; this matches the `POST /orders` discipline from §3.1.
+
+3. **Open the transaction (`prisma.$transaction`).** Inside the callback `tx`:
+   - **3a.** Re-fetch the order: `tx.order.findUnique({ where: { id: orderId }, include: { orderItems: true } })`. If null, throw a typed `OrderNotFoundError` — the controller catches it and translates to `404 "Order N not found"`. We re-check inside the transaction because the order may have been deleted between step 2's product lookup and the transaction's start.
+   - **3b.** Re-fetch the product's price *inside* the transaction: `tx.product.findUnique({ where: { id: productId } })`. This is the snapshot price for the new line (per D4). Doing this read inside the transaction closes the TOCTOU window: the only way to race a product deletion now is to delete it *inside another concurrent transaction*, and Postgres's serializable-snapshot semantics will surface that as a serialization failure rather than a silent FK violation. (For the academic build with no concurrent writers, this is belt-and-braces, but it's the correct shape.)
+   - **3c.** Insert the new `OrderItem`: `tx.orderItem.create({ data: { orderId, productId, quantity, price: product.price } })`.
+   - **3d.** Recompute `totalPrice`. Two equivalent ways: re-fetch the full items list and sum, or sum the previously-fetched list plus the new line. We use the latter — the order row from 3a already has `orderItems`, so we add `(product.price × quantity)` to its existing sum. Cheaper and avoids an extra round-trip.
+   - **3e.** `tx.order.update({ where: { id: orderId }, data: { totalPrice: newTotal } })`.
+   - **3f.** Re-read the order with items included and return it from the callback.
+
+4. **Commit happens automatically when the callback returns.** The controller serializes the returned order (the same `serializeOrder` from `orderController.js`) and responds with `201 { order: Order }`.
+
+**Failure modes**
+
+| What goes wrong                                                                                  | Status | Body                                                  | Wrote anything? |
+|--------------------------------------------------------------------------------------------------|--------|-------------------------------------------------------|-----------------|
+| `:order_id` is not a positive integer.                                                           | 400    | `{ "error": "Invalid order id" }`                     | No              |
+| `productId` or `quantity` malformed.                                                             | 400    | `{ "error": "productId must be a positive integer" }` (or the analogous `quantity` message) | No |
+| `productId` doesn't reference an existing product (step 2).                                      | 400    | `{ "error": "Product N does not exist" }`             | No              |
+| Order doesn't exist when the transaction starts (step 3a).                                       | 404    | `{ "error": "Order N not found" }`                    | No (transaction rolls back) |
+| Product deleted between step 2 and step 3b (TOCTOU race, very narrow window in practice).        | 500    | `{ "error": "Failed to add item to order" }`          | No (transaction rolls back) |
+| DB connection failure / other Prisma error inside the transaction.                               | 500    | `{ "error": "Failed to add item to order" }`          | No (transaction rolls back) |
+
+**Why this shape, not the alternatives**
+
+- **Why recompute `totalPrice` in the model instead of letting it drift?** Because every reader of `Order` (frontend receipts, the future Past Orders page, analytics queries) treats `totalPrice` as authoritative. If we let it stay stale and re-derive at read time, the column becomes a footgun for anyone joining against it. The D4 snapshot rule is what makes orders historically stable; losing the on-row total would weaken it.
+- **Why not delegate to `POST /orders`'s existing `Order.create` and have it write *one extra* item?** Because that path inserts a new `Order` row. Appending to an existing order is a structurally different write (`UPDATE` on the parent, `INSERT` on the child), so reusing the same model method would mean smuggling a "skip the order create" flag through it. New endpoint, new model method (`OrderItem.appendToOrder` or similar), one job each.
+- **Why a typed `OrderNotFoundError` instead of returning `null` from the transaction and letting the controller branch?** Because the transaction's return type needs to be the success-shape order. Throwing inside the callback aborts the transaction cleanly (`ROLLBACK`) and gives the controller a single switch (`err instanceof OrderNotFoundError`) instead of a discriminated union return. Same shape as Prisma's own `P2025` pattern.
 
 ---
 

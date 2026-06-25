@@ -1,0 +1,215 @@
+.OrderDetail {
+  background: var(--background);
+  padding: 48px var(--side-padding) 80px;
+}
+
+.OrderDetail .content {
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.OrderDetail .muted {
+  color: var(--muted-foreground);
+  padding: 40px 0;
+}
+
+.OrderDetail .error {
+  color: var(--destructive);
+  padding: 12px 0;
+}
+
+.OrderDetail .back-link {
+  display: inline-block;
+  font-size: 13px;
+  color: var(--muted-foreground);
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 2px;
+  margin-bottom: 28px;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.OrderDetail .back-link:hover {
+  color: var(--foreground);
+  border-bottom-color: var(--foreground);
+}
+
+.OrderDetail .head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 20px;
+  margin-bottom: 32px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid var(--border);
+}
+
+.OrderDetail .head .eyebrow {
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+  margin-bottom: 8px;
+}
+
+.OrderDetail .head h1 {
+  font-family: var(--font-display);
+  font-size: 36px;
+  font-weight: 500;
+  margin-bottom: 10px;
+}
+
+.OrderDetail .head .meta {
+  font-size: 13px;
+  color: var(--muted-foreground);
+}
+
+.OrderDetail .head-total {
+  text-align: right;
+}
+
+.OrderDetail .total-label {
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+  margin-bottom: 6px;
+}
+
+.OrderDetail .total-amount {
+  font-family: var(--font-display);
+  font-size: 26px;
+  font-weight: 600;
+}
+
+.OrderDetail .status {
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 3px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  display: inline-block;
+  margin-left: 4px;
+}
+
+.OrderDetail .status-pending {
+  color: var(--accent);
+  border-color: rgba(124, 58, 237, 0.35);
+  background: rgba(124, 58, 237, 0.08);
+}
+
+.OrderDetail .status-completed {
+  color: var(--foreground);
+  background: var(--secondary);
+}
+
+.OrderDetail .status-cancelled {
+  color: var(--destructive);
+  border-color: rgba(212, 24, 61, 0.35);
+}
+
+.OrderDetail .items-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.OrderDetail .items-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 18px 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--secondary);
+}
+
+.OrderDetail .items-head h2 {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 500;
+}
+
+.OrderDetail .items-count {
+  font-size: 12px;
+  color: var(--muted-foreground);
+}
+
+.OrderDetail .items {
+  display: flex;
+  flex-direction: column;
+}
+
+.OrderDetail .items-row {
+  display: grid;
+  grid-template-columns: 1fr 70px 110px 120px;
+  gap: 12px;
+  align-items: center;
+  padding: 14px 20px;
+  font-size: 13px;
+  border-bottom: 1px solid var(--border);
+}
+
+.OrderDetail .items-row:last-child {
+  border-bottom: none;
+}
+
+.OrderDetail .items-row-head {
+  background: transparent;
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+}
+
+.OrderDetail .items-row .center {
+  text-align: center;
+}
+
+.OrderDetail .items-row .right {
+  text-align: right;
+}
+
+.OrderDetail .items-row .strong {
+  font-weight: 600;
+}
+
+.OrderDetail .totals {
+  padding: 16px 20px;
+  border-top: 1px solid var(--border);
+  background: var(--secondary);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.OrderDetail .totals-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  color: var(--muted-foreground);
+}
+
+.OrderDetail .totals-grand {
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--foreground);
+  padding-top: 6px;
+  border-top: 1px solid var(--border);
+}
+
+@media (max-width: 640px) {
+  .OrderDetail .head {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .OrderDetail .head-total {
+    text-align: left;
+  }
+  .OrderDetail .items-row {
+    grid-template-columns: 1fr 50px 1fr;
+  }
+  .OrderDetail .items-row > :nth-child(3) {
+    display: none;
+  }
+}

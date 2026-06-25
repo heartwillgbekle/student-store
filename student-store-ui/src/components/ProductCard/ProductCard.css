@@ -114,7 +114,7 @@
 
 .ProductCard .row .btn-step:hover {
   background: var(--secondary);
-  border-color: rgba(232, 230, 240, 0.2);
+  border-color: rgba(13, 13, 18, 0.25);
 }
 
 .ProductCard .row .btn-step .material-icons {

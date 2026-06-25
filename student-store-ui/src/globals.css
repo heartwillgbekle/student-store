@@ -1,22 +1,22 @@
 @import url("https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=DM+Sans:wght@300;400;500;600&display=swap");
 
 :root {
-  --background: #0D0D12;
-  --foreground: #E8E6F0;
-  --card: #13131A;
-  --card-foreground: #E8E6F0;
-  --primary: #E8E6F0;
-  --primary-foreground: #0D0D12;
-  --secondary: #1A1A24;
-  --secondary-foreground: #E8E6F0;
-  --muted: #1E1E2A;
-  --muted-foreground: #7A7890;
+  --background: #FFFFFF;
+  --foreground: #0D0D12;
+  --card: #FFFFFF;
+  --card-foreground: #0D0D12;
+  --primary: #0D0D12;
+  --primary-foreground: #FFFFFF;
+  --secondary: #F5F5F7;
+  --secondary-foreground: #0D0D12;
+  --muted: #F0F0F2;
+  --muted-foreground: #6B6A78;
   --accent: #7C3AED;
   --accent-foreground: #FFFFFF;
   --destructive: #d4183d;
-  --border: rgba(232, 230, 240, 0.08);
-  --input-background: #1A1A24;
-  --ring: rgba(124, 58, 237, 0.5);
+  --border: rgba(13, 13, 18, 0.1);
+  --input-background: #F5F5F7;
+  --ring: rgba(124, 58, 237, 0.4);
 
   --radius: 0.25rem;
 
