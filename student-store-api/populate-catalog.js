@@ -1,4 +1,8 @@
-const API_BASE_URL = 'http://localhost:3000'
+const API_BASE_URL =
+  process.env.API_BASE_URL ||
+  (process.env.TARGET === 'prod'
+    ? 'https://student-store-backend-ng8u.onrender.com'
+    : 'http://localhost:3000')
 
 const img = (seed) => `https://picsum.photos/seed/${seed}/600/600`
 
