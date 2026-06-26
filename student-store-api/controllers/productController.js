@@ -114,7 +114,7 @@ const deleteProduct = async (req, res) => {
   }
   try {
     await Product.remove(id)
-    res.status(204).send()
+    res.status(200).json({ message: `Product ${id} deleted` })
   } catch (err) {
     if (err.code === 'P2025') {
       return res.status(404).json({ error: `Product ${id} not found` })

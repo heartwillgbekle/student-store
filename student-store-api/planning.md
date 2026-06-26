@@ -183,7 +183,7 @@ HTTP status carries the category (`400` validation, `404` missing, `500` server)
 - **404**: `{ "error": "Product 42 not found" }`
 
 #### 6. `DELETE /products/:id`
-- **204**: empty body. (Cascade removes `OrderItem` rows referencing this product.)
+- **200**: `{ "message": "Product 42 deleted" }`. (Cascade removes `OrderItem` rows referencing this product.) Status was `204 No Content` originally; switched to `200` so a confirmation message can be surfaced in the UI / Postman without an out-of-band reason-phrase parse.
 - **404**: `{ "error": "Product 42 not found" }`
 
 #### 7. `GET /orders`
@@ -263,7 +263,7 @@ Update an order's `customer` and/or `status`. The line items (`orderItems`) and 
 
 #### 11. `DELETE /orders/:id`
 
-- **204**: empty body. Cascade removes `OrderItem` rows referencing this order (per D2/[planning.md:49](#L49) — and this is the *correct* default, since line items have no meaning without their parent order).
+- **200**: `{ "message": "Order 42 deleted" }`. Cascade removes `OrderItem` rows referencing this order (per D2/[planning.md:49](#L49) — and this is the *correct* default, since line items have no meaning without their parent order). Status was `204 No Content` originally; switched to `200` so a confirmation message can be surfaced in the UI / Postman.
 - **400** — `{ "error": "Invalid order id" }` if `:id` is non-numeric.
 - **404** — `{ "error": "Order 42 not found" }`.
 

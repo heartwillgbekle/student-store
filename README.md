@@ -98,9 +98,8 @@ Deployed Application (optional): [Student Store Deployed Site](https://student-s
 
 ### Walkthrough Video
 
-`TODO://` Add the embedded URL code to your animated app walkthrough below, `ADD_EMBEDDED_CODE_HERE`. Make sure the video or gif actually renders and animates when viewing this README. (🚫 Remove this paragraph after adding walkthrough video)
-
-`ADD_EMBEDDED_CODE_HERE`
+[Walkthrough on Loom 1](https://www.loom.com/share/718a39771a0d4a7c94f8980c5e651ac9)
+[Walkthrough on Loom 2](https://www.loom.com/share/e5587b48b5594ff5b8483e0471c06216)
 
 ### Reflection
 
