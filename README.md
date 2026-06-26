@@ -99,6 +99,7 @@ Deployed Application (optional): [Student Store Deployed Site](https://student-s
 ### Walkthrough Video
 
 [Walkthrough on Loom 1](https://www.loom.com/share/718a39771a0d4a7c94f8980c5e651ac9)
+
 [Walkthrough on Loom 2](https://www.loom.com/share/e5587b48b5594ff5b8483e0471c06216)
 
 ### Reflection
